@@ -25,17 +25,21 @@ def download_csv(url_to_csv, output_file_name):
     os.system(f"gzip --decompress {output_file_name}")
 
 @flow(name="Dump To DB", description="Dumps the transformed data into the Database")
-def dump_to_db(df, db_engine, table_name, filename):
+def dump_to_db(db_engine, table_name, filename):
+    
+    df = pd.read_csv(filename, nrows=100000)
+    
     # create table
     df.head(n=0).to_sql(table_name, con=db_engine, if_exists='replace')
     
-    # Iteratively insert the csv rows into the DB in a batchsize of 100000
     df_iter = pd.read_csv(filename, iterator=True, chunksize=100000)
 
     # Iteratively dump the csv rows to the Database
     while True:
         try:
             t_start = time()
+            
+            df = next(df_iter)
             
             transformed_df = transform_data(df)
             
@@ -46,8 +50,6 @@ def dump_to_db(df, db_engine, table_name, filename):
             
             t_end = time()
             print('inserted another chunk... took %.3f second' % (t_end - t_start))
-            
-            df = next(df_iter)
         
         except StopIteration:
             print("Finished ingesting data into the postgres database")
@@ -81,11 +83,9 @@ def main_flow():
 
     download_csv(args.csv_url, args.output)
     
-    df = pd.read_csv(filename, nrows=100000)
-    
     db_engine = connect_to_db(args.user, args.password, args.host, args.port, args.db)
     
-    dump_to_db(df, db_engine, args.tbl_name, filename)
+    dump_to_db(db_engine, args.tbl_name, filename)
 
 if(__name__ == "__main__"):
     main_flow()
