@@ -1,0 +1,43 @@
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Python-specific
+__pycache__/
+*.pyc
+
+# Environment
+venv/
+.env
+
+# Data
+data/*.csv
+data/*.xlsx
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+*.tfvars
+
+# Ignore .env files if used for sensitive information
+.env
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+.history/
+*.log
+
+# Ignore all data files (test data) for now
+.sample_data/
