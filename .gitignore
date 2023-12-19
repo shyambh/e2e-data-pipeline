@@ -10,6 +10,7 @@ venv/
 .env
 
 # Data
+.sample_data/
 data/*.csv
 data/*.xlsx
 
@@ -39,5 +40,5 @@ terraform.rc
 .history/
 *.log
 
-# Ignore all data files (test data) for now
-.sample_data/
+# macOS metadata file
+.DS_Store
