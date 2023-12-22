@@ -7,6 +7,7 @@ import os
 import pandas as pd
 from prefect import flow, task
 from prefect_sqlalchemy import SqlAlchemyConnector
+from prefect_gcp.cloud_storage import GcsBucket, DataFrameSerializationFormat
 
 
 def get_filename(filename):
@@ -72,6 +73,28 @@ def dump_to_db(table_name, filename):
                 break
 
 
+@flow(
+    name="GCS Data Loader",
+    description="Upload the csv file in the parquet format in GCP cloud bucket",
+)
+def store_to_gcp_bucket() -> None:
+    """Load the first 100,000 records into GCS Bucket"""
+    gcp_bucket_block = GcsBucket.load("gcp-zoomcamp-bucket")
+
+    connection_block = SqlAlchemyConnector.load("pg-sql-connector")
+
+    with connection_block.get_connection() as sql_con:
+        df = pd.read_sql_table("yellow_taxi_table", con=sql_con, chunksize=100000)
+
+        df_trimmed = next(df)
+        df_trimmed.to_parquet("./.sample_data/output.parquet", compression="gzip")
+        gcp_bucket_block.upload_from_dataframe(
+            df_trimmed,
+            to_path="data/output.parquet",
+            serialization_format=DataFrameSerializationFormat.PARQUET_GZIP,
+        )
+
+
 @flow(name="Ingest Flow")
 def main_flow():
     parser = argparse.ArgumentParser()
@@ -85,6 +108,8 @@ def main_flow():
     download_csv(args.csv_url, args.output)
 
     dump_to_db(args.tbl_name, filename)
+
+    store_to_gcp_bucket()
 
 
 if __name__ == "__main__":
