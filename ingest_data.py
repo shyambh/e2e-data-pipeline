@@ -5,72 +5,87 @@ from time import time
 import argparse
 import os
 import pandas as pd
-from sqlalchemy import create_engine
+from prefect import flow, task
+from prefect_sqlalchemy import SqlAlchemyConnector
 
 
-def main(params):
-    username = params.user
-    password = params.password
-    host = params.host
-    port = params.port
-    database = params.db
-    table_name = params.tbl_name
-    url_to_csv = params.csv_url
-    output_file_name = params.output
+def get_filename(filename):
+    return ".".join(filename.split(".")[:-1])
 
-    # Download the csv file from the url
+
+@task(log_prints=True)
+def download_csv(url_to_csv, output_file_name):
+    """Function to download the csv file from remote"""
     os.system(f"curl -L -o {output_file_name} {url_to_csv}")
-
     os.system(f"gzip --decompress {output_file_name}")
 
-    filename = output_file_name.replace(".gz", "")
 
-    # Establish a connection to the database
-    engine = create_engine(
-        f"postgresql://{username}:{password}@{host}:{port}/{database}"
-    )
-    df = pd.read_csv(filename, nrows=100000)
+@task(log_prints=True)
+def transform_data(df):
+    print(f"pre:missing passenger count: {df['passenger_count'].isin([0]).sum()}")
 
-    # Print out the create table query. Just for info.
-    print(pd.io.sql.get_schema(df, table_name, con=engine))
+    df = df[df["passenger_count"] != 0]
 
-    # create table
-    df.head(n=0).to_sql(table_name, con=engine, if_exists="replace")
+    print(f"post:missing passenger count: {df['passenger_count'].isin([0]).sum()}")
 
-    # Iteratively insert the csv rows into the DB in a batchsize of 100000
-    df_iter = pd.read_csv(filename, iterator=True, chunksize=100000)
-
-    # This while loop throws an error in the last iteration since the last iteration has < 100000 rows to input.
-    # todo: refactor the code to handle this error.
-    while True:
-        try:
-            t_start = time()
-            df = next(df_iter)
-
-            df.tpep_pickup_datetime = pd.to_datetime(df.tpep_pickup_datetime)
-            df.tpep_dropoff_datetime = pd.to_datetime(df.tpep_dropoff_datetime)
-
-            df.to_sql(table_name, con=engine, if_exists="append")
-
-            t_end = time()
-            print("inserted another chunk... took %.3f second" % (t_end - t_start))
-
-        except StopIteration:
-            print("Finished ingesting data into the postgres database")
-            break
+    return df
 
 
-if __name__ == "__main__":
+@flow(
+    name="Dump To DB Subflow",
+    description="Dumps the transformed data into the Database",
+)
+def dump_to_db(table_name, filename):
+    connection_block = SqlAlchemyConnector.load("pg-sql-connector")
+
+    with connection_block.get_connection(begin=False) as db_engine:
+        df = pd.read_csv(filename, nrows=100000)
+
+        # create table
+        df.head(n=0).to_sql(table_name, con=db_engine, if_exists="replace")
+
+        df_iter = pd.read_csv(filename, iterator=True, chunksize=100000)
+
+        # Iteratively dump the csv rows to the Database
+        while True:
+            try:
+                t_start = time()
+
+                df = next(df_iter)
+
+                transformed_df = transform_data(df)
+
+                transformed_df.tpep_pickup_datetime = pd.to_datetime(
+                    transformed_df.tpep_pickup_datetime
+                )
+                transformed_df.tpep_dropoff_datetime = pd.to_datetime(
+                    transformed_df.tpep_dropoff_datetime
+                )
+
+                transformed_df.to_sql(table_name, con=db_engine, if_exists="append")
+
+                t_end = time()
+                print("inserted another chunk... took %.3f second" % (t_end - t_start))
+
+            except StopIteration:
+                print("Finished ingesting data into the postgres database")
+                break
+
+
+@flow(name="Ingest Flow")
+def main_flow():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--user", help="Postgres username")
-    parser.add_argument("--password", help="Postgres password")
-    parser.add_argument("--host", help="Postgres hostname")
-    parser.add_argument("--port", help="Postgres port number")
-    parser.add_argument("--db", help="Postgres database name")
     parser.add_argument("--tbl_name", help="name of the destination table")
     parser.add_argument("--csv_url", help="url of the csv file")
     parser.add_argument("--output", help="name of the downloaded csv file")
 
     args = parser.parse_args()
+    filename = ".".join(args.output.split(".")[:-1])
 
-    main(args)
+    download_csv(args.csv_url, args.output)
+
+    dump_to_db(args.tbl_name, filename)
+
+
+if __name__ == "__main__":
+    main_flow()
