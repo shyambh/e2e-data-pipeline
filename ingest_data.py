@@ -137,25 +137,29 @@ def download_from_gcs_to_local(path: str) -> None:
 
 
 @flow(name="Ingest Flow")
-def main_flow():
+def main_flow(output_dir="", taxi_color="", year="", month="") -> None:
     """The main flow which is the master flow"""
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output_dir", help="name of the downloaded csv file")
-    parser.add_argument("--taxi_color", help="color of the taxi")
-    parser.add_argument("--year", help="year of the taxi data")
-    parser.add_argument("--month", help="month of the taxi data")
+    # If the flow is not running from the Prefect Deployment with params, then the following conditional check ensures that the args are picked up from the CLI arguments
 
-    args = parser.parse_args()
+    if not (output_dir and taxi_color and year and month):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--output_dir", help="name of the downloaded csv file")
+        parser.add_argument("--taxi_color", help="color of the taxi")
+        parser.add_argument("--year", help="year of the taxi data")
+        parser.add_argument("--month", help="month of the taxi data")
 
-    taxi_color = args.taxi_color
-    year = args.year
-    month = args.month
+        args = parser.parse_args()
+
+        taxi_color = args.taxi_color
+        year = args.year
+        month = args.month
+        output_dir = args.output_dir
 
     table_name = f"{taxi_color}-{year}-{month}"
 
     # Download the csv from the remote URL
-    filename = download_csv(taxi_color, year, month, args.output_dir)
+    filename = download_csv(taxi_color, year, month, output_dir)
 
     # Dump the downloaded csv into the Database
     dump_to_db(table_name, filename)

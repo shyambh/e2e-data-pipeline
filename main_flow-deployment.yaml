@@ -1,0 +1,65 @@
+###
+### A complete description of a Prefect Deployment for flow 'Ingest Flow'
+###
+name: Parametrized ETL
+description: The main flow which is the master flow
+version: 479a1e28e6d5a9a05a94b4c0681e1482
+# The work queue that will handle this deployment's runs
+work_queue_name: default
+work_pool_name: default-agent-pool
+tags: []
+parameters:
+  output_dir: .sample_data
+  taxi_color: green
+  year: '2019'
+  month: '11'
+schedule: null
+is_schedule_active: true
+infra_overrides: {}
+
+###
+### DO NOT EDIT BELOW THIS LINE
+###
+flow_name: Ingest Flow
+manifest_path: null
+infrastructure:
+  type: process
+  env: {}
+  labels: {}
+  name: null
+  command: null
+  stream_output: true
+  working_dir: null
+  _block_document_id: ffa53b89-6aa7-44a1-9311-6c1832776278
+  _block_document_name: anonymous-40ddfbb9-2467-4fc1-a738-1b726a93aeec
+  _is_anonymous: true
+  block_type_slug: process
+  _block_type_slug: process
+storage: null
+path: /Users/shyam/repos/data_eng
+entrypoint: ingest_data.py:main_flow
+parameter_openapi_schema:
+  title: Parameters
+  type: object
+  properties:
+    output_dir:
+      title: output_dir
+      default: ''
+      position: 0
+    taxi_color:
+      title: taxi_color
+      default: ''
+      position: 1
+    year:
+      title: year
+      default: ''
+      position: 2
+    month:
+      title: month
+      default: ''
+      position: 3
+  required: null
+  definitions: null
+timestamp: '2023-12-25T08:28:38.593975+00:00'
+triggers: []
+enforce_parameter_schema: null
