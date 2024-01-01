@@ -1,9 +1,7 @@
-FROM python:3.9
+FROM prefecthq/prefect:2.7.7-python3.9
 
-RUN pip install pandas sqlalchemy psycopg2
+COPY docker-requirements.txt .
 
-WORKDIR /app
+RUN pip install -r docker-requirements.txt --trusted-host pypi.python.org --no-cache-dir 
 
-COPY ingest_data.py ingest_data.py
-
-ENTRYPOINT ["python", "ingest_data.py"]
+COPY ingest_data.py /opt/prefect/flows

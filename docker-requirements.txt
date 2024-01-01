@@ -1,0 +1,6 @@
+pandas==2.1.4
+prefect-sqlalchemy==0.3.2
+SQLAlchemy==1.4.50
+prefect-gcp==0.5.5
+pandas-gbq==0.20.0
+pyarrow==14.0.2
